@@ -22,10 +22,10 @@ class CitizenComponentPageFooter implements CitizenComponent {
 		$footerData = $this->footerData;
 
 		// Add label to footer-info to use in PageFooter
-		foreach ( $footerData['array-items'] as &$item ) {
-			$msgKey = 'citizen-page-info-' . $item['name'];
-			$item['label'] = $this->localizer->msg( $msgKey )->text();
-		}
+		// foreach ( $footerData['array-items'] as &$item ) {
+		// 	$msgKey = 'citizen-page-info-' . $item['name'];
+		// 	$item['label'] = $this->localizer->msg( $msgKey )->text();
+		// }
 
 		return $footerData;
 	}

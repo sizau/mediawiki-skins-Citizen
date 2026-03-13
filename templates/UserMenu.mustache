@@ -7,7 +7,7 @@
 			class="citizen-dropdown-summary" 
 			title="{{msg-citizen-usermenu-toggle}}"
 			aria-details="citizen-userMenu__card">
-			<span class="citizen-ui-icon mw-ui-icon-wikimedia-userAvatar"></span>
+			<span class="citizen-ui-icon mw-ui-icon-wikimedia-userAvatar" {{#data-user}}data-user="{{data-user}}" style="--avatar-url: url('/extensions/Avatar/avatar.php?user={{data-user}}');"{{/data-user}}></span>
 			<span>{{msg-citizen-usermenu-toggle}}</span>
 		</summary>
 	</details>

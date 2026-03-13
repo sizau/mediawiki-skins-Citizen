@@ -119,6 +119,9 @@
 	"HookHandlers": {
 		"SkinHooks": {
 			"class": "MediaWiki\\Skins\\Citizen\\Hooks\\SkinHooks"
+		},
+		"SkinAddFooterLinksHandler": {
+			"class": "MediaWiki\\Skins\\Citizen\\Hooks\\SkinAddFooterLinksHandler"
 		}
 	},
 	"Hooks": {
@@ -126,7 +129,8 @@
 		"OutputPageAfterGetHeadLinksArray": "SkinHooks",
 		"SidebarBeforeOutput": "SkinHooks",
 		"SkinBuildSidebar": "SkinHooks",
-		"SkinPageReadyConfig": "SkinHooks"
+		"SkinPageReadyConfig": "SkinHooks",
+		"SkinAddFooterLinks": "SkinAddFooterLinksHandler"
 	},
 	"ResourceModules": {
 		"skins.citizen.styles": {
@@ -902,6 +906,21 @@
 			"value": "left",
 			"description": "Position of the header on the desktop layout. Possible values: 'left', 'right', 'top' and 'bottom'",
 			"descriptionmsg": "citizen-config-headerposition",
+			"public": true
+		},
+		"FooterICPRecord": {
+			"value": null,
+			"description": "ICP record information for footer. Set as array with 'text', 'url', and 'title' keys.",
+			"public": true
+		},
+		"FooterPSBRecord": {
+			"value": null,
+			"description": "Public Security Bureau record information for footer. Set as array with 'text', 'url', and 'title' keys.",
+			"public": true
+		},
+		"FooterCustomLinks": {
+			"value": [],
+			"description": "Custom footer links. Set as array of arrays, each with 'text', 'url', and optional 'title' keys.",
 			"public": true
 		}
 	},

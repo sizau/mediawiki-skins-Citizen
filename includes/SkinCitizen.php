@@ -193,10 +193,16 @@ class SkinCitizen extends SkinMustache {
 			$this->getOutput()->addBodyClasses( 'citizen-toc-enabled' );
 		}
 
+		// Expose logged-in username to templates for attributes like data-user
+		if ( $user->isRegistered() ) {
+			$parentData['data-user'] = htmlspecialchars( $user->getName(), ENT_QUOTES );
+		}
+
 		return array_merge( $parentData, [
 			// Booleans
 			'toc-enabled' => $isTocEnabled
 		] );
+
 	}
 
 	/**
