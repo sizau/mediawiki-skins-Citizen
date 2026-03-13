@@ -261,11 +261,6 @@ class SkinCitizen extends SkinMustache {
 			$parentData['data-user'] = htmlspecialchars( $user->getName(), ENT_QUOTES );
 		}
 
-		// Expose logged-in username to templates for attributes like data-user
-		if ( $user->isRegistered() ) {
-			$parentData['data-user'] = htmlspecialchars( $user->getName(), ENT_QUOTES );
-		}
-
 		return $parentData;
 
 	}
