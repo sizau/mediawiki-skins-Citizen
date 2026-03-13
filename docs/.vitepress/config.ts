@@ -10,6 +10,9 @@ export default defineConfig( {
 	srcDir: 'src',
 	cleanUrls: true,
 	lastUpdated: true,
+	sitemap: {
+		hostname: 'https://starcitizentools.github.io/mediawiki-skins-Citizen/',
+	},
 	themeConfig: {
 		logo: '/img/layout.svg',
 		nav: [
@@ -58,7 +61,7 @@ export default defineConfig( {
 						link: '/config/',
 					},
 					{
-						text: 'Extensions 🚧',
+						text: 'Extensions',
 						link: '/config/extensions',
 					},
 				],
@@ -72,6 +75,10 @@ export default defineConfig( {
 						link: '/customization/theming',
 					},
 					{
+						text: 'Recipes',
+						link: '/customization/recipes',
+					},
+					{
 						text: 'Features',
 						collapsed: true,
 						link: '/customization/features',
@@ -80,11 +87,19 @@ export default defineConfig( {
 								text: 'Command palette',
 								link: '/customization/command-palette',
 							},
+							{
+								text: 'Performance mode',
+								link: '/customization/performance-mode',
+							},
+							{
+								text: 'Preferences',
+								link: '/customization/preferences',
+							},
 						],
 					},
 					{
-						text: 'Wiki templates 🚧',
-						link: '/customization/wiki-templates',
+						text: 'Hooks',
+						link: '/customization/hooks',
 					},
 				],
 			},
@@ -95,10 +110,6 @@ export default defineConfig( {
 					{
 						text: 'Showcase',
 						link: '/community/showcase',
-					},
-					{
-						text: 'Tips and tricks 🚧',
-						link: '/community/tips',
 					},
 				],
 			},
@@ -138,9 +149,16 @@ export default defineConfig( {
 			},
 		],
 
-		search: {
-			provider: 'local',
-		},
+		search: process.env.ALGOLIA_APP_ID && process.env.ALGOLIA_API_KEY && process.env.ALGOLIA_INDEX_NAME ?
+			{
+				provider: 'algolia',
+				options: {
+					appId: process.env.ALGOLIA_APP_ID,
+					apiKey: process.env.ALGOLIA_API_KEY,
+					indexName: process.env.ALGOLIA_INDEX_NAME,
+				},
+			} :
+			{ provider: 'local' },
 
 		editLink: {
 			pattern: 'https://github.com/StarCitizenTools/mediawiki-skins-Citizen/edit/main/docs/src/:path',

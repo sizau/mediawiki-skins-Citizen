@@ -71,12 +71,11 @@
 				}
 			}
 
-			> .citizen-dropdown-summary {
+			// Match cdx-button--is-active styles for quiet buttons
+			// Extra .cdx-button class needed to beat Codex quiet base specificity
+			> .citizen-dropdown-summary.cdx-button {
+				color: var( --color-emphasized );
 				background-color: var( --background-color-button-quiet--active );
-
-				&:hover {
-					background-color: var( --background-color-button-quiet--hover );
-				}
 			}
 		}
 	}
@@ -127,8 +126,8 @@
 				content: '';
 				background: var( --background-color-backdrop-light );
 				opacity: 0;
-				-webkit-backdrop-filter: blur( 2px );
-				backdrop-filter: blur( 2px );
+				-webkit-backdrop-filter: var( --backdrop-filter-blur );
+				backdrop-filter: var( --backdrop-filter-blur );
 				transition-timing-function: var( --transition-timing-function-ease );
 				transition-duration: var( --transition-duration-base );
 				transition-property: opacity;
