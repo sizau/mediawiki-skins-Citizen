@@ -12,7 +12,9 @@ use MediaWiki\Output\OutputPage;
 use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\ResourceLoader as RL;
 use MediaWiki\Skin\SkinComponentUtils;
+use MediaWiki\Skins\Citizen\SkinCitizen;
 use MediaWiki\Skins\Hook\SkinPageReadyConfigHook;
+use MediaWiki\SpecialPage\SpecialPage;
 use Skin;
 use SkinTemplate;
 
@@ -29,7 +31,8 @@ class SkinHooks implements
 	private static ?string $inlineScript = null;
 
 	/**
-	 * Adds the inline theme switcher script to the page
+	 * Adds the inline theme switcher script and resolves the active
+	 * color-token pipeline for the current request.
 	 *
 	 * @param OutputPage $out
 	 * @param Skin $skin
@@ -44,10 +47,48 @@ class SkinHooks implements
 			self::$inlineScript ??= Html::inlineScript(
 				RL\ResourceLoader::filter(
 					'minify-js',
-					file_get_contents( MW_INSTALL_PATH . '/skins/Citizen/resources/skins.citizen.scripts/inline.js' )
+					file_get_contents( __DIR__ . '/../../resources/skins.citizen.scripts/inline.js' )
 				)
 			);
 			$out->addHeadItem( 'skin.citizen.inline', self::$inlineScript );
+		}
+
+		self::resolveColorMode( $out );
+	}
+
+	/**
+	 * Pick the color-token module for this request and add it.
+	 *
+	 * Priority: ?citizenusenewtoken=0|1 URL param > citizenusenewtoken
+	 * cookie > $wgCitizenUseNewToken config. The URL param also writes
+	 * a 24-hour cookie. Mode flip takes effect on the next request —
+	 * exactly one token module ships per request.
+	 */
+	private static function resolveColorMode( OutputPage $out ): void {
+		$request = $out->getRequest();
+		$urlVal = $request->getRawVal( 'citizenusenewtoken' );
+
+		if ( $urlVal === '0' || $urlVal === '1' ) {
+			$useNew = $urlVal === '1';
+			$request->response()->setCookie(
+				'citizenusenewtoken',
+				$urlVal,
+				time() + 86400
+			);
+		} else {
+			$cookieVal = $request->getCookie( 'citizenusenewtoken', null, '' );
+			if ( $cookieVal === '0' || $cookieVal === '1' ) {
+				$useNew = $cookieVal === '1';
+			} else {
+				$useNew = (bool)$out->getConfig()->get( 'CitizenUseNewToken' );
+			}
+		}
+
+		if ( $useNew ) {
+			$out->addModuleStyles( [ 'skins.citizen.tokens.new' ] );
+			$out->addHtmlClasses( 'citizen-token-new' );
+		} else {
+			$out->addModuleStyles( [ 'skins.citizen.tokens' ] );
 		}
 	}
 
@@ -215,7 +256,7 @@ class SkinHooks implements
 		}
 
 		if ( isset( $links['notifications'] ) ) {
-			self::updateNotificationsMenu( $links );
+			self::updateNotificationsMenu( $sktemplate, $links );
 		}
 
 		if ( isset( $links['user-menu'] ) ) {
@@ -330,44 +371,38 @@ class SkinHooks implements
 	}
 
 	/**
-	 * Update notifications menu
+	 * Capture Echo's two notification badges (alert + notice) as merged data
+	 * for Citizen's own notifications dropdown (Notifications.mustache), then
+	 * drop Echo's portlet so there is no duplicate control. The merged unread
+	 * count is handed to the skin, which exposes it as template data; the
+	 * dropdown renders a single bell that opens a panel showing both streams
+	 * (and links to Special:Notifications without JS).
 	 *
 	 * @internal used inside Hooks\SkinHooks::onSkinTemplateNavigation
 	 */
-	private static function updateNotificationsMenu( array &$links ): void {
-		$iconMap = [
-			'notifications-alert' => 'bell',
-			'notifications-notice' => 'tray'
-		];
+	private static function updateNotificationsMenu( SkinTemplate $sktemplate, array &$links ): void {
+		$alert = $links['notifications']['notifications-alert'] ?? null;
+		$notice = $links['notifications']['notifications-notice'] ?? null;
 
-		self::mapIconsToMenuItems( $links, 'notifications', $iconMap );
-		self::addIconsToMenuItems( $links, 'notifications' );
-
-		/**
-		 * Echo has styles that control icons rendering in places we don't want them.
-		 * Based on fixEcho() from Vector, see T343838
-		 */
-		foreach ( $links['notifications'] as &$item ) {
-			$icon = $item['icon'] ?? null;
-			if ( $icon ) {
-				$linkClass = $item['link-class'] ?? [];
-				$newLinkClass = [
-					'citizen-echo-notification-badge',
-					'cdx-button',
-					'cdx-button--fake-button',
-					'cdx-button--fake-button--enabled',
-					'cdx-button--icon-only',
-					'cdx-button--weight-quiet',
-					'citizen-cdx-button--size-large',
-					// Allows Echo to react to clicks
-					'mw-echo-notification-badge-nojs'
-				];
-				if ( in_array( 'mw-echo-unseen-notifications', $linkClass ) ) {
-					$newLinkClass[] = 'mw-echo-unseen-notifications';
-				}
-				$item['link-class'] = $newLinkClass;
-			}
+		// Nothing to do if Echo did not provide its badges.
+		if ( $alert === null && $notice === null ) {
+			return;
 		}
+
+		$alertCount = (int)( $alert['data']['counter-num'] ?? 0 );
+		$noticeCount = (int)( $notice['data']['counter-num'] ?? 0 );
+
+		if ( $sktemplate instanceof SkinCitizen ) {
+			$sktemplate->setNotificationData( [
+				'count' => $alertCount + $noticeCount,
+				'href' => $alert['href'] ?? $notice['href']
+					?? SpecialPage::getTitleFor( 'Notifications' )->getLocalURL(),
+			] );
+		}
+
+		// Citizen renders its own notifications dropdown, so drop Echo's
+		// portlet badges to avoid a duplicate control in the header.
+		unset( $links['notifications'] );
 	}
 
 	/**
@@ -381,10 +416,20 @@ class SkinHooks implements
 		$isTemp = $user->isTemp();
 
 		if ( $isTemp ) {
-			// Remove temporary user page text from user menu and recreate it in user info
+			// Remove temporary user page text and the temp username link from
+			// user menu — both are already shown in the user info header
 			unset( $links['user-menu']['tmpuserpage'] );
-			// Remove links as they are added to the bottom of user menu later
-			// unset( $links['user-menu']['logout'] );
+			unset( $links['user-menu']['userpage'] );
+
+			// Move account links to appear right before the exit session link
+			$tail = [];
+			foreach ( [ 'createaccount', 'login', 'logout' ] as $key ) {
+				if ( isset( $links['user-menu'][$key] ) ) {
+					$tail[$key] = $links['user-menu'][$key];
+					unset( $links['user-menu'][$key] );
+				}
+			}
+			$links['user-menu'] += $tail;
 		} elseif ( $isRegistered ) {
 			// Remove user page link from user menu and recreate it in user info
 			unset( $links['user-menu']['userpage'] );

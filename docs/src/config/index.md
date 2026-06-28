@@ -88,6 +88,27 @@ $wgCitizenThemeColor = '#0d0e12';
 
 **Values**: Hex color code
 
+### `$wgCitizenUseNewToken`
+
+::: warning Experimental
+The new color token pipeline is under active development. Token names, values, and the retheme API may change without notice. Production wikis should leave this off.
+:::
+
+Opts the wiki into Citizen's new color token pipeline (`skins.citizen.tokens.new`). Exactly one token module ships per request — when enabled, the new module loads in place of the default `skins.citizen.tokens`, and `<html>` gets `.citizen-token-new`.
+
+```php [LocalSettings.php]
+$wgCitizenUseNewToken = false;
+```
+
+**Values**: `true`, `false`
+
+The setting can also be toggled per-browser without editing `LocalSettings.php`:
+
+- Append `?citizenusenewtoken=1` to any wiki URL to opt in for the current render. The choice is stored in a 24-hour cookie so it persists across pages in the same browser.
+- Append `?citizenusenewtoken=0` to opt back out.
+
+When neither the URL query nor the cookie is present, the value of `$wgCitizenUseNewToken` decides.
+
 ### `$wgCitizenEnableARFonts`
 
 Loads the "Noto Naskh Arabic" font, improving readability for wikis that use Arabic script.
@@ -110,7 +131,7 @@ $wgCitizenEnableCJKFonts = false;
 
 ### `$wgCitizenEnablePreferences`
 
-Enables the user [preferences panel](/customization/preferences), allowing visitors to customize their experience. The panel is extensible — admins can add custom preferences via on-wiki JSON, and gadgets can register their own options at runtime.
+Enables the user [preferences panel](/features/preferences), allowing visitors to customize their experience. The panel is extensible — admins can add custom preferences via on-wiki JSON, and gadgets can register their own options at runtime.
 
 ```php [LocalSettings.php]
 $wgCitizenEnablePreferences = true;
@@ -148,6 +169,34 @@ The minimum number of headings required before the sticky table of contents auto
 ```php [LocalSettings.php]
 $wgCitizenTableOfContentsCollapseAtCount = 28;
 ```
+
+## Share
+
+### `$wgCitizenEnableShare`
+
+Shows the share option on content pages (when the page exists).
+
+```php [LocalSettings.php]
+$wgCitizenEnableShare = true;
+```
+
+**Values**: `true`, `false`
+
+### `$wgCitizenShareMode`
+
+Which share UI to present.
+
+```php [LocalSettings.php]
+$wgCitizenShareMode = 'auto';
+```
+
+**Values**:
+
+- `'auto'` (default) — try the browser's Web Share API first; fall back to Citizen's panel when the API isn't available (e.g. desktop Firefox).
+- `'panel'` — always use Citizen's panel.
+- `'native'` — always use the Web Share API, with a clipboard fallback on browsers that don't support it.
+
+See the [Share customization page](/features/share) for the panel's JSON shape and a starter pack.
 
 ## Webapp manifest
 

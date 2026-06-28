@@ -24,6 +24,7 @@ use MediaWiki\Skins\Citizen\Components\CitizenComponentStickyHeader;
 use MediaWiki\Skins\Citizen\Components\CitizenComponentTableOfContents;
 use MediaWiki\Skins\Citizen\Components\CitizenComponentUserInfo;
 use MediaWiki\Title\Title;
+use MediaWiki\User\TempUser\TempUserConfig;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentityLookup;
@@ -62,6 +63,26 @@ class SkinCitizen extends SkinMustache {
 	private ?array $languages = null;
 
 	/**
+	 * Merged notification data (count, alert state, link target) captured from
+	 * Echo's navigation links by SkinHooks during the SkinTemplateNavigation
+	 * hook. Null when the user has no notifications portlet. See
+	 * {@link setNotificationData}.
+	 */
+	private ?array $notificationData = null;
+
+	/**
+	 * Receive merged notification data from SkinHooks::updateNotificationsMenu.
+	 * Called while the SkinTemplateNavigation hook runs inside
+	 * parent::getTemplateData(), so the value is ready by the time this skin
+	 * assembles its own template data.
+	 *
+	 * @param array $data { count: int, href: string }
+	 */
+	public function setNotificationData( array $data ): void {
+		$this->notificationData = $data;
+	}
+
+	/**
 	 * Overrides template, styles and scripts module
 	 *
 	 * @inheritDoc
@@ -75,6 +96,7 @@ class SkinCitizen extends SkinMustache {
 		private readonly PermissionManager $permissionManager,
 		private readonly UserGroupManager $userGroupManager,
 		private readonly UrlUtils $urlUtils,
+		private readonly TempUserConfig $tempUserConfig,
 		// @phan-suppress-next-line PhanUndeclaredTypeParameter,PhanUndeclaredTypeProperty
 		private readonly ?MobileContext $mfContext,
 		array $options = []
@@ -159,6 +181,7 @@ class SkinCitizen extends SkinMustache {
 	 */
 	public function getTemplateData(): array {
 		$parentData = parent::getTemplateData();
+		self::polyfillFooterPortlets( $parentData );
 
 		$config = $this->getConfig();
 		$localizer = $this->getContext();
@@ -174,12 +197,15 @@ class SkinCitizen extends SkinMustache {
 		$components = [
 			'data-footer' => new CitizenComponentFooter(
 				$localizer,
-				$parentData['data-footer']
+				[
+					'data-footer-places' => $parentData['data-portlets']['data-footer-places'] ?? [],
+					'data-footer-icons' => $parentData['data-portlets']['data-footer-icons'] ?? [],
+				]
 			),
 			'data-main-menu' => new CitizenComponentMainMenu( $sidebar ),
 			'data-page-footer' => new CitizenComponentPageFooter(
 				$localizer,
-				$parentData['data-footer']['data-info']
+				$parentData['data-portlets']['data-footer-info'] ?? []
 			),
 			'data-page-heading' => new CitizenComponentPageHeading(
 				$this->userFactory,
@@ -221,10 +247,12 @@ class SkinCitizen extends SkinMustache {
 				$localizer,
 				$title,
 				$user,
+				$this->tempUserConfig,
 				$parentData['data-portlets']['data-user-page']
 			),
 			'data-sticky-header' => new CitizenComponentStickyHeader(
-				$this->isVisualEditorTabPositionFirst( $parentData['data-portlets']['data-views'] )
+				visualEditorTabPositionFirst: $this->isVisualEditorTabPositionFirst( $parentData['data-portlets']['data-views'] ),
+				enableShare: $config->get( 'CitizenEnableShare' ) && $title->exists() && $title->isContentPage()
 			),
 			'data-body-content' => new CitizenComponentBodyContent(
 				$parentData['html-body-content'],
@@ -247,6 +275,11 @@ class SkinCitizen extends SkinMustache {
 
 		// TODO: Pass the home icon through the component instead of injecting into logos data
 		$parentData['data-logos']['icon-home'] = 'home';
+
+		// Captured by SkinHooks::updateNotificationsMenu during the
+		// SkinTemplateNavigation hook (which ran inside parent::getTemplateData
+		// above). Drives the notifications dropdown in Header.mustache.
+		$parentData['data-notifications'] = $this->notificationData;
 
 		$parentData['toc-enabled'] = !empty( $parentData['data-toc'][ 'array-sections' ] );
 		if ( $parentData['toc-enabled'] ) {
@@ -384,6 +417,80 @@ class SkinCitizen extends SkinMustache {
 			'rel' => 'manifest',
 			'href' => $href,
 		] );
+	}
+
+	/**
+	 * Normalize a footer menu data array to the canonical Citizen shape that
+	 * Footer.mustache consumes.
+	 *
+	 * Different sources of footer menu data carry slightly different outer
+	 * fields — SkinComponentFooter::formatFooterDataForCurrentSpec strips
+	 * 'class' and injects 'className', whereas raw portlet output (from
+	 * SkinComponentMenu via getPortletData) keeps 'class' and never sets
+	 * 'className'. This helper standardises on Citizen's expected shape so
+	 * the template can render either source identically.
+	 *
+	 * @param array $data Source menu data (must include 'array-items' to be usable)
+	 * @param bool $isIcons True for footer-icons (toggles 'noprint' className)
+	 * @param string $id Canonical DOM id (e.g. 'footer-places')
+	 * @return array Canonical Citizen footer menu shape
+	 */
+	private static function normalizeFooterMenu( array $data, bool $isIcons, string $id ): array {
+		return [
+			'id' => $id,
+			'className' => $isIcons ? 'noprint' : null,
+			'array-items' => $data['array-items'] ?? [],
+		];
+	}
+
+	/**
+	 * Populate $parentData['data-portlets']['data-footer-{places,info,icons}']
+	 * so Citizen's templates can consume the modern portlet location on every
+	 * supported MW version.
+	 *
+	 * Either-or strategy: if the portlet bucket already carries items
+	 * (canonical source on MW 1.47+), keep it but normalize its shape.
+	 * Otherwise, build it from the legacy $parentData['data-footer'].*
+	 * slice (canonical source on MW 1.43–1.46). When both are empty, the
+	 * key is set to [] so Mustache skips the empty <nav> render.
+	 *
+	 * Trade-off: on MW 1.43–1.46, an extension that uses
+	 * SkinTemplateNavigation::Universal directly with a footer-* key would
+	 * populate only the portlet bucket, and this strategy would then NOT
+	 * fall back to the legacy bucket — so the built-in privacy/about/
+	 * disclaimer links would be dropped. This is accepted as a rare edge
+	 * case (the MW manual documents that the new hook "only applies to
+	 * modern skins using that menu"). T426358 forward-compat for MW 1.47
+	 * is the primary scope.
+	 *
+	 * @param array &$parentData The full parent template data array
+	 */
+	private static function polyfillFooterPortlets( array &$parentData ): void {
+		if ( !isset( $parentData['data-portlets'] ) || !is_array( $parentData['data-portlets'] ) ) {
+			$parentData['data-portlets'] = [];
+		}
+
+		$pairs = [
+			[ 'data-footer-places', 'data-places', false, 'footer-places' ],
+			[ 'data-footer-info', 'data-info', false, 'footer-info' ],
+			[ 'data-footer-icons', 'data-icons', true, 'footer-icons' ],
+		];
+
+		foreach ( $pairs as [ $portletKey, $legacyKey, $isIcons, $id ] ) {
+			$portlet = $parentData['data-portlets'][ $portletKey ] ?? null;
+			$legacy = $parentData['data-footer'][ $legacyKey ] ?? null;
+
+			if ( !empty( $portlet['array-items'] ) ) {
+				$source = $portlet;
+			} elseif ( !empty( $legacy['array-items'] ) ) {
+				$source = $legacy;
+			} else {
+				$parentData['data-portlets'][ $portletKey ] = [];
+				continue;
+			}
+
+			$parentData['data-portlets'][ $portletKey ] = self::normalizeFooterMenu( $source, $isIcons, $id );
+		}
 	}
 
 }

@@ -28,7 +28,9 @@
 		align-items: center;
 		justify-content: normal;
 		max-width: none;
+		font-size: inherit; // unset CdxButton font-size
 		font-weight: var( --font-weight-medium );
+		text-wrap: auto; // unset CdxButton text-wrap
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
 
@@ -149,7 +151,8 @@
 			// in extremely short height. but it should be good for now
 			max-height: ~'calc( var( --header-card-maxheight ) - 8rem )';
 			padding: var( --space-xs );
-			transform-origin: var( --transform-origin-offset-start ) var( --transform-origin-offset-end );
+			// Floating button at the bottom; card expands upward.
+			.mixin-citizen-card-expand( up );
 		}
 
 		.citizen-dropdown {
@@ -209,6 +212,7 @@
 			border: 0;
 			border-radius: 0;
 			box-shadow: none;
+			clip-path: none;
 			transform: none;
 
 			.citizen-menu__card-content {

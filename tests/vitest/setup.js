@@ -20,6 +20,11 @@ Module._extensions[ '.mustache' ] = function ( mod, filename ) {
 const originalResolveFilename = Module._resolveFilename;
 const TEMPLATES_DIR = path.resolve( __dirname, '../../templates' );
 Module._resolveFilename = function ( request, parent, ...rest ) {
+	// Virtual ResourceLoader modules with bare names (no relative path),
+	// addressed by their module name from any consumer.
+	if ( request === 'mediawiki.page.ready' ) {
+		return path.resolve( __dirname, 'mocks/mediawikiPageReady.js' );
+	}
 	if ( parent && parent.filename &&
 		parent.filename.includes( 'skins.citizen.scripts' ) ) {
 		if ( request === './tableOfContentsConfig.json' ) {
@@ -52,6 +57,18 @@ Module._resolveFilename = function ( request, parent, ...rest ) {
 		// Vue SFCs go through Vite's plugin pipeline and don't hit this path.
 		if ( request === './App.vue' ) {
 			return path.resolve( __dirname, 'mocks/AppStub.js' );
+		}
+	}
+	if ( parent && parent.filename &&
+		parent.filename.includes( 'skins.citizen.share' ) ) {
+		if ( request === './icons.json' ) {
+			return path.resolve( __dirname, 'mocks/shareIcons.js' );
+		}
+	}
+	if ( parent && parent.filename &&
+		parent.filename.includes( 'skins.citizen.notifications' ) ) {
+		if ( request === './icons.json' || request === '../icons.json' ) {
+			return path.resolve( __dirname, 'mocks/notificationsIcons.js' );
 		}
 	}
 	if ( parent && parent.filename &&

@@ -60,43 +60,37 @@ function initBodyContent(
 }
 
 /**
- * Initialize preferences module when the preferences button is first clicked
- *
- * @param {Object} deps
- * @param {Document} deps.document
- * @param {Object} deps.mw
- * @return {void}
- */
-function initPreferences( { document, mw } ) {
-	document.getElementById( 'citizen-preferences-details' ).addEventListener( 'toggle', () => {
-		mw.loader.load( 'skins.citizen.preferences' );
-	},
-	{
-		once: true
-	} );
-}
-
-/**
  * @param {Window} window
  * @return {void}
  */
 function main( window ) {
 	const
 		config = require( './config.json' ),
-		{ createEchoUpgrade } = require( './echo.js' ),
+		{ createNotifications } = require( './notifications.js' ),
 		search = require( './search.js' ),
 		dropdown = require( './dropdown.js' ),
 		{ createLastModified } = require( './lastModified.js' ),
 		{ createShare } = require( './share.js' ),
 		setupObservers = require( './setupObservers.js' ),
-		{ createPerformanceMode } = require( './performance.js' );
+		{ createPerformanceMode } = require( './performance.js' ),
+		{ createPreferences } = require( './preferences.js' ),
+		{ createCommandPalette } = require( './commandPalette.js' );
 
-	search.init( { window, document, mw } );
-	createEchoUpgrade( { document, mw } ).init();
+	const commandPalette = createCommandPalette( { document, mw } );
+	commandPalette.init();
+
+	search.init( { window, document, triggerOpen: commandPalette.triggerOpen } );
+	createNotifications( { document, mw } ).init();
 	setupObservers.init( { document, window, mw, IntersectionObserver } );
 	dropdown.init( { document, window } );
 	createLastModified( { document, Intl } ).init();
-	createShare( { document, window, mw, navigator } ).init();
+	createShare( {
+		document,
+		window,
+		mw,
+		navigator,
+		mode: config.wgCitizenShareMode
+	} ).init();
 	createPerformanceMode( { document, mw } ).init();
 
 	mw.hook( 'wikipage.content' ).add( ( content ) => {
@@ -109,7 +103,7 @@ function main( window ) {
 
 	// Preferences module
 	if ( config.wgCitizenEnablePreferences === true ) {
-		initPreferences( { document, mw } );
+		createPreferences( { document, mw } ).init();
 	}
 
 	// Defer non-essential tasks

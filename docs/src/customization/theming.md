@@ -7,6 +7,11 @@ description: Customizing the look and feel of Citizen
 
 Citizen's visual appearance is controlled by CSS custom properties. Override them in `MediaWiki:Citizen.css` to match your wiki's brand.
 
+::: tip
+To truly make the wiki your own, you would need CSS to style the skin and templates.
+If you are getting started, check out the [How to use Dev Tools guide](https://river.me/blog/dev-tools) from River!
+:::
+
 ## Colors
 
 ### Primary color
@@ -67,13 +72,33 @@ To use a font from [Google Fonts](https://fonts.google.com) (or any other source
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
 
 :root {
-    --font-family-citizen-base: 'Inter', sans-serif;
+    --font-family-citizen-base: 'Inter';
 }
 ```
 
 ::: tip
+Set just the font name. Citizen adds `system-ui`, `sans-serif`, and language-specific fallbacks downstream — putting them here yourself can short-circuit the chain for users on the CJK or Arabic modules.
+:::
+
+::: tip
 Any font works, but [variable fonts](https://fonts.google.com/variablefonts) are recommended — Citizen uses multiple font weights, and a variable font serves them all from a single file.
 :::
+
+### Avoiding font flicker
+
+Web fonts load asynchronously — until yours arrives, the browser shows a system fallback. If the two fonts have different metrics, text visibly resizes or shifts when the swap happens.
+
+Citizen ships a metric-matched fallback for Roboto Flex that hides this. If you've swapped Roboto for another font, you can do the same:
+
+1. Generate override descriptors with a tool like [font-style-matcher](https://meowni.ca/font-style-matcher/) or [screenspan.net/fallback](https://screenspan.net/fallback).
+2. Add the resulting `@font-face` to your CSS under a distinct family name like `'Inter-fallback'`.
+3. Reference it right after your font in the variable:
+
+```css
+:root {
+    --font-family-citizen-base: 'Inter', 'Inter-fallback';
+}
+```
 
 ## Layout
 
@@ -95,3 +120,18 @@ Citizen supports Light, Dark, Pure Black, and Automatic modes. Use these selecto
 | Dark | `.skin-theme-clientpref-night` |
 | Pure black | `.skin-theme-clientpref-night.citizen-feature-pure-black-clientpref-1` |
 | Automatic | `.skin-theme-clientpref-os` |
+
+### Inverting images in dark mode
+
+Some images, especially black text or icons on a transparent background, become invisible in dark mode. Citizen exposes a `--filter-invert` CSS variable that inverts colors only when a dark theme is active. Apply it to the element containing the image:
+
+```css
+filter: var( --filter-invert );
+```
+
+## Performance considerations
+
+When you're customizing Citizen, two areas reward extra attention:
+
+- **Expensive styles and scripts.** Citizen lets users opt into a lighter experience that strips animations and visual effects. If your customizations include anything weighty — frosted glass, transitions, heavy background images, decorative SVGs, or scripts doing expensive work — adapt them so users on performance mode get a lighter version. See [Performance mode → Custom styles](../features/performance-mode.md#custom-styles) and [→ Custom scripts](../features/performance-mode.md#custom-scripts) for the patterns.
+- **Font flicker.** Custom web fonts swap in after the page renders, which can shift layout if their metrics don't match the system fallback. See [Avoiding font flicker](#avoiding-font-flicker) above for how to ship a metric-matched fallback.

@@ -40,6 +40,18 @@ When your test plan includes steps that require a browser (e.g., verifying scrip
 - Always check the browser console for warnings and errors, not just visual correctness
 - **XSS testing for i18n**: When changes touch interface messages or how they are rendered, append `?uselang=x-xss` to the URL. This replaces all i18n messages with XSS payloads — if any script executes or markup is injected, the message output is not properly escaped. See [Manual:$wgUseXssLanguage](https://www.mediawiki.org/wiki/Manual:$wgUseXssLanguage)
 
+## Skills
+
+Project-local agent skills live in `.agents/skills/<name>/SKILL.md`. They are auto-discovered by Claude Code, Codex, Copilot CLI, and other compatible agent tooling. Each skill's frontmatter `description` declares when the skill should be invoked.
+
+Available skills:
+
+| Skill | Use when |
+| --- | --- |
+| `finalize-release` | A Release Please PR has been merged and the GitHub release needs author tags, highlights, new contributors, and a docs CI rebuild |
+
+To add a new skill, create `.agents/skills/<name>/SKILL.md` with frontmatter (`name`, `description`) and a body that describes the workflow. Add a row to the table above so it is discoverable.
+
 ## Coding conventions
 
 ### PHP
@@ -75,6 +87,7 @@ When your test plan includes steps that require a browser (e.g., verifying scrip
 `skin.json` is the source of truth for how the skin is wired — ResourceLoader modules, hooks, config variables, and extension skin styles are all declared here.
 
 - When adding or removing files under `resources/`, update the corresponding `packageFiles` or `styles` list in `skin.json`
+- When a new i18n message key is read by JS via `mw.message()`, also add it to the relevant ResourceLoader module's `messages` array in `skin.json` — adding the key only to `i18n/en.json` and `i18n/qqq.json` is not enough; messages not listed in the module render as `⧼key⧽` in the UI
 - When adding support for a new extension, add a LESS file under `skinStyles/` and register it in `skin.json` under `ResourceModuleSkinStyles`
 - Config variables are declared under `config` in `skin.json` (prefixed `wgCitizen`). In PHP they are accessed via `$this->getConfig()->get( 'CitizenFoo' )`, and can be injected into JS via `ResourceLoaderHooks`
 
@@ -83,6 +96,7 @@ When your test plan includes steps that require a browser (e.g., verifying scrip
 - Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `fix(tests):`, `feat:`, `refactor:`)
 - Use `ci:` or `chore:` for non-user-facing changes (tooling, config, dependencies)
 - Do **not** include emojis — a pre-commit hook adds them automatically based on the commit type prefix
+- Subject lines are surfaced in the auto-generated changelog. Write them in plain user-facing language, not implementation jargon — compare `suggest Category as a primitive in SMW property stage` (jargon) with `suggest Category in SMW mode` (clear). The body is where implementation detail belongs.
 
 ### Tests
 
@@ -103,6 +117,28 @@ PHP-generated HTML (Mustache templates, `SkinMustache` output) is cached by the 
 - **Part 2/2**: Remove the old CSS/JS (deploy after caches have expired)
 
 This only applies to PHP-generated HTML. Client-rendered HTML (e.g. Vue components) is not parser-cached and does not need this treatment.
+
+#### Alternative: defensive JS fallback
+
+The two-commit pattern is additive — new state coexists with old during the deploy window. When a change *removes* a load or mount mechanism that the old HTML depends on, coexistence costs more (double-binding handlers across two flows) than the alternative.
+
+For those changes, the new JS detects when expected new HTML is missing (`getElementById(...) === null`) and reconstructs it at runtime as a one-time safety net. Single deploy, robust to any cache state.
+
+Track the fallback's removal as a GitHub issue: it must ship with the release that lands the migration, and can be removed in the next release.
+
+### Lazy-loaded Vue modules
+
+Vue and per-module bundles are not part of the initial page load — they're loaded on intent via `mw.loader`. Any control that mounts a Vue app needs:
+
+- **Intent prefetch** via `bindIntentPrefetch()` on the trigger so hover/focus/touch starts the network round-trip before the click.
+- **Lazy load on activation** via `mw.loader.using()` on the actual click/toggle event.
+- **Server-rendered skeleton** inside the mount target for in-place panels (Preferences, Share). Vue's `mount()` replaces it on success. The skeleton must be server-rendered because the JS that would render it isn't there yet.
+- **A failure path** sized to the UI's tolerance for staying broken. Pick what fits:
+  - Retry the load in place (Preferences renders a retry button beside the skeleton).
+  - Degrade to a non-Vue path that achieves the same goal (Share closes the panel and triggers the browser's native share sheet).
+  - Surface a toast and dismiss the UI (Command palette uses `mw.notify`; the overlay sits empty during the load and disappears on failure).
+
+See `createPreferences`, `createShare`, and `createCommandPalette` for the patterns.
 
 ### i18n
 

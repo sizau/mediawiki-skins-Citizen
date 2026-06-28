@@ -1,15 +1,13 @@
 /**
- * Citizen tokens
- * CSS variables that are used throughout the skin
+ * Citizen non-color tokens — layout, spacing, fonts, header
+ * positioning, transitions. Color tokens themselves are emitted by
+ * skins.citizen.tokens or skins.citizen.tokens.new (one or the other
+ * per request, picked by SkinHooks).
  *
- * TODO: Remove HSL fallback when OKLCH is supported in all browsers
- * TODO: Use CSS relative color syntax when supported in all browsers
+ * TODO: Remove HSL fallback when OKLCH is supported in all browsers.
+ * TODO: Use CSS relative color syntax when supported in all browsers.
  */
-@import 'tokens-theme-base.less';
-
 :root {
-	.theme-base();
-
 	// Border
 	--border-radius-medium: calc( var( --border-radius-base ) * 2 );
 	--border-radius-large: calc( var( --border-radius-base ) * 3 );
@@ -22,9 +20,11 @@
 	--filter-image-brightness: none; // Revisit on the next LTS (T401654)
 
 	// Font
+	// Customization point — set just the brand font (plus a metric-matched fallback if any).
+	// Generic and OS-level fallbacks (system-ui, sans-serif, etc.) are composed downstream in variables.less.
 	--font-family-citizen-base: 'Roboto', 'Roboto-fallback';
-	--font-family-citizen-serif: 'Roboto Serif', 'Roboto Serif-fallback';
-	--font-family-citizen-monospace: 'Roboto Mono', 'Roboto Mono-fallback';
+	--font-family-citizen-serif: 'Roboto Serif';
+	--font-family-citizen-monospace: 'Roboto Mono';
 	--font-family-language-base: '';
 	--font-family-language-serif: '';
 	--font-family-language-monospace: '';
@@ -37,13 +37,15 @@
 	--toolbar-size: 2.5rem;
 	// Used to offset sticky elements with sticky header
 	// This is overriden by inline styles in the html element when sticky header is active
-	// Need the unit for calc() (#1058)
-	// stylelint-disable-next-line length-zero-no-unit
+	// stylelint-disable-next-line length-zero-no-unit -- Need the unit for calc() (#1058)
 	--height-sticky-header: 0px;
 	// Width or height of citizen-header, depending on the orientation
 	--header-size: @header-size;
-	// Max-height allowed for header card, 20vh is left for closing affordnance
-	--header-card-maxheight: 80vh;
+	// Max-height allowed for header card. Uses dvh, not vh: on mobile vh
+	// resolves to the largest viewport (address bar retracted), so the card
+	// overflows the visible area while the bar is showing. dvh tracks the
+	// currently-visible height.
+	--header-card-maxheight: calc( 100dvh - var( --header-size ) - var( --space-xs ) * 2 );
 	// Width of the gradient in citizen-overflow
 	--overflow-gradient-size: 2rem;
 	// Width of the body content
@@ -69,16 +71,28 @@
 	--space-xxl: calc( 2 * var( --space-unit ) );
 
 	// Transition
-	--transition-delay-menu: 100ms;
-	// @see https://www.joshwcomeau.com/animation/css-transitions/#custom-curves-7
-	--transition-timing-function-ease: cubic-bezier( 0.44, 0.21, 0, 1 );
-	--transition-timing-function-ease-in: cubic-bezier( 0.75, 0, 1, 1 );
-	--transition-timing-function-ease-out: cubic-bezier( 0.215, 0.61, 0.355, 1 );
+	--transition-timing-function-ease: cubic-bezier( 0.2, 0, 0, 1 );
+	--transition-timing-function-ease-in: cubic-bezier( 0.3, 0, 0.8, 0.15 );
+	--transition-timing-function-ease-out: cubic-bezier( 0.05, 0.7, 0.1, 1 );
 
 	// Transform
 	// Add affordance to thumbnails to replace magnify icon
 	// On hover, enlarge the image to inform the user that a full-size image will be shown (to MMV or file page)
 	--transform-image-hover: scale( 1.1 );
+
+	// Card open animation — closed-state direction tokens.
+	// Each name describes the direction the card visually expands; the trigger
+	// sits on the OPPOSITE side. Consumers pick a direction via the
+	// .mixin-citizen-card-expand mixin or inherit one from the page-level
+	// cascade defined alongside the header-position tokens below.
+	--citizen-clip-expand-up: inset( 100% 0 0 0 );
+	--citizen-clip-expand-down: inset( 0 0 100% 0 );
+	--citizen-clip-expand-right: inset( 0 100% 0 0 );
+	--citizen-clip-expand-left: inset( 0 0 0 100% );
+	--citizen-translate-expand-up: translateY( var( --space-xs ) );
+	--citizen-translate-expand-down: translateY( calc( var( --space-xs ) * -1 ) );
+	--citizen-translate-expand-right: translateX( calc( var( --space-xs ) * -1 ) );
+	--citizen-translate-expand-left: translateX( var( --space-xs ) );
 
 	// Codex Design Tokens but not included as CSS variables
 	--border-base: var( --border-width-base ) solid var( --border-color-base );
@@ -113,7 +127,6 @@
 
 	@media ( min-width: @min-width-breakpoint-desktop ) {
 		--padding-page: calc( @padding-page * 2 );
-		--header-card-maxheight: calc( 100vh - var( --space-sm ) * 2 );
 	}
 
 	@media ( prefers-contrast: more ) {
@@ -124,9 +137,18 @@
 		--font-weight-normal: 300;
 	}
 
+	// Card open animation — page-level direction cascade.
+	// The default below is overridden by the per-position cascade inside the
+	// header-position media query a few lines down. Header-anchored cards
+	// (drawer, header__end menus) inherit these values without local
+	// declarations; cards with a fixed direction call .mixin-citizen-card-expand
+	// in their own scope.
+	.mixin-citizen-card-expand( up );
+
 	// Header position tokens
-	// Unit is required for calc() functions
-	// stylelint-disable length-zero-no-unit
+	// These drive dynamic layout calc()s; a unitless 0 is type <number>
+	// and silently invalidates <number> + <length> calcs (#1058).
+	/* stylelint-disable length-zero-no-unit -- Need the unit for calc() (#1058) */
 	--header-direction: row;
 	--header-size-inline-start: 0px;
 	--header-size-inline-end: 0px;
@@ -148,7 +170,7 @@
 		--header-inset-inline-end: 0px;
 		--header-size-block-end: var( --header-size );
 		--header-inset-block-start: auto;
-		--header-inset-block-end: 0;
+		--header-inset-block-end: 0px;
 		--header-border-block-start-width: var( --border-width-base );
 	}
 
@@ -159,6 +181,7 @@
 				--header-direction: column;
 				--header-inset-block-start: 0px;
 				--header-inset-block-end: 0px;
+				--header-card-maxheight: calc( 100dvh - var( --space-xs ) * 2 );
 			}
 
 			&-top,
@@ -173,6 +196,7 @@
 				--header-inset-inline-start: 0px;
 				--header-inset-inline-end: auto;
 				--header-border-inline-end-width: var( --border-width-base );
+				.mixin-citizen-card-expand( right );
 			}
 
 			&-right {
@@ -180,6 +204,7 @@
 				--header-inset-inline-start: auto;
 				--header-inset-inline-end: 0px;
 				--header-border-inline-start-width: var( --border-width-base );
+				.mixin-citizen-card-expand( left );
 			}
 
 			&-top {
@@ -187,6 +212,7 @@
 				--header-inset-block-start: 0px;
 				--header-inset-block-end: auto;
 				--header-border-block-end-width: var( --border-width-base );
+				.mixin-citizen-card-expand( down );
 			}
 
 			&-bottom {
@@ -194,17 +220,18 @@
 				--header-inset-block-start: auto;
 				--header-inset-block-end: 0px;
 				--header-border-block-start-width: var( --border-width-base );
+				.mixin-citizen-card-expand( up );
 			}
 		}
 	}
-	// stylelint-enable length-zero-no-unit
+	/* stylelint-enable length-zero-no-unit */
 
 	// Derived header offset tokens
 	// These combine the static header size with the dynamic sticky header height
 	--header-offset-block-start: calc( var( --header-size-block-start ) + var( --height-sticky-header ) );
 	--header-offset-block-end: var( --header-size-block-end );
 
-	// Deprecated tokens
+	// Deprecated aliases — drop alongside the legacy pipeline.
 	--color-primary__h: var( --color-progressive-hsl__h );
 	--color-primary__s: var( --color-progressive-hsl__s );
 	--color-primary__l: var( --color-progressive-hsl__l );

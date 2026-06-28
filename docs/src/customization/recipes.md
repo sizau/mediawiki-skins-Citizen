@@ -64,7 +64,7 @@ The sticky header and some overlays use a frosted glass effect — a heavier blu
 
 ## Remove or modify preferences
 
-Admins can remove or customize any built-in preference through `MediaWiki:Citizen-preferences.json`. See the [preferences documentation](/customization/preferences) for the full schema.
+Admins can remove or customize any built-in preference through `MediaWiki:Citizen-preferences.json`. See the [preferences documentation](/features/preferences) for the full schema.
 
 For example, to keep only light and dark in the theme switcher (removing automatic mode):
 
@@ -92,3 +92,27 @@ To hide a preference from the panel entirely, set it to `null`:
   }
 }
 ```
+
+## Force a theme site-wide
+
+To lock everyone into a single theme, combine two changes — set the default theme, then remove the picker so users can't switch.
+
+First, set the default in `LocalSettings.php` using a valid value for [`$wgCitizenThemeDefault`](../config/#wgcitizenthemedefault):
+
+```php
+$wgCitizenThemeDefault = 'dark';
+```
+
+Then remove the theme picker by editing `MediaWiki:Citizen-preferences.json`:
+
+```json
+{
+  "preferences": {
+    "skin-theme": null
+  }
+}
+```
+
+::: warning
+Users who picked a different theme before you applied this change have it stored in their browser's local storage. They'll keep seeing their old choice until they clear site data — local storage doesn't expire on its own. New visitors get the forced theme immediately.
+:::
